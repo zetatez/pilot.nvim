@@ -41,12 +41,11 @@ function M.setup()
   })
 
   vim.keymap.set('i', '<C-l>', function()
-    if M.accept() then return '<C-l>' end
+    if M.accept() then return false end
   end, { expr = true })
 
   vim.keymap.set('i', '<C-h>', function()
     M.clear()
-    return '<C-h>'
   end, { expr = true })
 
   vim.api.nvim_create_user_command('Pilot', function(opts)
