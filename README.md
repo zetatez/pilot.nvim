@@ -27,16 +27,27 @@ return {
     'zetatez/pilot.nvim',
     ft = { 'python', 'javascript', 'typescript', 'lua', 'go', 'rust', 'cpp', 'c', 'java' },
     config = function()
-      require('pilot').setup({})
+      require('pilot').setup()
       vim.g.pilot_provider = 'minimax'
       vim.g.pilot_model = 'MiniMax-M2.7'
       vim.g.pilot_api_key_env = 'MINIMAX_API_KEY'
+
+vim.keymap.set('i', '<C-l>', function()
+  require('pilot').accept()
+end, { expr = true })
+
+vim.keymap.set('i', '<C-h>', function()
+  require('pilot').clear()
+  return ''
+end, { expr = true })
     end,
   },
 }
 ```
 
 ## Configuration
+
+### Global Variables
 
  | Variable                  | Default          | Description                        |
  | ----------                | ---------        | -------------                      |
@@ -80,22 +91,12 @@ export MINIMAX_API_KEY=...
 
 ## Keybindings
 
-| Key | Action |
-|-----|--------|
-| `<C-l>` | Accept suggestion |
-| `<C-h>` | Dismiss suggestion |
-
-To customize keybindings, override them after `require('pilot').setup({})`:
-
 ```lua
-require('pilot').setup({})
-
-vim.keymap.set('i', '<C-]>', function()
-  if require('pilot').accept() then return false end
-  return ''
+vim.keymap.set('i', '<C-l>', function()
+  require('pilot').accept()
 end, { expr = true })
 
-vim.keymap.set('i', '<C-[>', function()
+vim.keymap.set('i', '<C-h>', function()
   require('pilot').clear()
   return ''
 end, { expr = true })

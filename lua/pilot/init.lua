@@ -3,6 +3,8 @@ local M = {}
 M.ns_id = vim.api.nvim_create_namespace('pilot')
 M.cache = {}
 
+M.config = {}
+
 function M.setup()
   vim.g.loaded_pilot = 1
 
@@ -39,14 +41,6 @@ function M.setup()
       if M.timer then vim.fn.timer_stop(M.timer) end
     end,
   })
-
-  vim.keymap.set('i', '<C-l>', function()
-    if M.accept() then return false end
-  end, { expr = true })
-
-  vim.keymap.set('i', '<C-h>', function()
-    M.clear()
-  end, { expr = true })
 
   vim.api.nvim_create_user_command('Pilot', function(opts)
     local cmd = opts.fargs[1]
@@ -112,7 +106,7 @@ function M.request()
   local filetype = vim.bo.filetype
   local prompt = {
     messages = {
-      { role = 'system', content = 'You are an expert ' .. filetype .. ' programmer. The user shows code where [|] marks the cursor position. Predict what the user will type next on this line. Output ONLY the exact text to insert after [|], no explanation, no commentary, no quotes.' },
+      { role = 'system', content = 'You are an expert ' .. filetype .. ' programmer. The user shows code where [|] marks the cursor position. Predict what the user will type next, supporting single or multiple lines. When uncertain, prefer fewer lines. Output ONLY the exact text to insert after [|], no explanation, no commentary, no quotes.' },
       { role = 'user', content = prefix },
     },
   }
@@ -138,23 +132,41 @@ function M.show(text, bufnr, row, col)
   M.clear()
   if not vim.api.nvim_buf_is_valid(bufnr) then return end
 
-  local line = vim.api.nvim_buf_get_lines(bufnr, row, row + 1, false)[1]
-  col = math.min(col, line and #line or 0)
+  local line = vim.api.nvim_buf_get_lines(bufnr, row, row + 1, false)[1] or ''
+  col = math.min(col, #line)
 
-  local first_line = (text:match('^[^\n]+') or text):gsub('\r', '')
-  if first_line == '' then return end
+  local after_text = line:sub(col + 1)
+  local lines = vim.split(text:gsub('\r', ''), '\n', true)
+  if #lines == 0 or (#lines == 1 and lines[1] == '') then return end
 
-  local id = vim.api.nvim_buf_set_extmark(bufnr, M.ns_id, row, col, {
-    virt_text = { { first_line, 'PilotSuggestion' } },
-    virt_text_pos = 'overlay',
-  })
+  local ids = {}
 
-  M.extmark = { id = id, bufnr = bufnr, row = row, col = col, text = first_line }
+  if #lines == 1 then
+    ids[1] = vim.api.nvim_buf_set_extmark(bufnr, M.ns_id, row, col, {
+      virt_text = { { lines[1], 'PilotSuggestion' } },
+      virt_text_pos = 'overlay',
+    })
+  else
+    local virt_lines = {}
+    for i, line_text in ipairs(lines) do
+      virt_lines[i] = { { line_text, 'PilotSuggestion' } }
+    end
+    ids[1] = vim.api.nvim_buf_set_extmark(bufnr, M.ns_id, row, col, {
+      virt_lines = virt_lines,
+    })
+  end
+
+  M.extmark = { ids = ids, bufnr = bufnr, row = row, col = col, text = text, after_text = after_text }
 end
 
 function M.clear()
   if M.extmark and vim.api.nvim_buf_is_valid(M.extmark.bufnr) then
-    pcall(vim.api.nvim_buf_del_extmark, M.extmark.bufnr, M.ns_id, M.extmark.id)
+    local ids = M.extmark.ids
+    if ids then
+      for _, id in ipairs(ids) do
+        pcall(vim.api.nvim_buf_del_extmark, M.extmark.bufnr, M.ns_id, id)
+      end
+    end
   end
   M.extmark = nil
 end
@@ -162,9 +174,13 @@ end
 function M.accept()
   if not M.extmark then return true end
   local text = M.extmark.text
+  local after_text = M.extmark.after_text
+  local row = M.extmark.row
+  local col = M.extmark.col
   M.clear()
   vim.schedule(function()
-    vim.api.nvim_put(vim.split(text, '\n', true), '', true, true)
+    local lines = vim.split(text:gsub('\r', ''), '\n', true)
+    vim.api.nvim_buf_set_text(0, row, col, row, col + #after_text, lines)
   end)
   return false
 end
