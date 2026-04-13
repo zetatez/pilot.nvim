@@ -31,15 +31,8 @@ return {
       vim.g.pilot_provider = 'minimax'
       vim.g.pilot_model = 'MiniMax-M2.7'
       vim.g.pilot_api_key_env = 'MINIMAX_API_KEY'
-
-vim.keymap.set('i', '<C-l>', function()
-  require('pilot').accept()
-end, { expr = true })
-
-vim.keymap.set('i', '<C-h>', function()
-  require('pilot').clear()
-  return ''
-end, { expr = true })
+      vim.keymap.set('i', '<C-l>', function() require('pilot').accept() end, { expr = true })
+      vim.keymap.set('i', '<C-h>', function() require('pilot').clear() return '' end, { expr = true })
     end,
   },
 }
